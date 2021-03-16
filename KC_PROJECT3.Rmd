@@ -1,0 +1,143 @@
+---
+title: "TRPV1 Sequence Alignment"
+name: Kristen Corpuz
+output: html_notebook
+---
+
+## Introduction
+
+Scientific Question: Is the TRPV1 sequence of humans more similar to the TRPV1 sequence of tree shrews or the TRPV1 sequence of mice?
+
+TRPV1 is a gene that encodes for a receptor channel on peripheral sensory neurons (Chu 2020). The binding of capsaicin, a molecule found in chili peppers, to TRPV1 receptors elicits sensations of heat and pain (Han 2018). Experimentation has demonstrated that tree shrews actively choose to eat food containing higher capsaicin levels, while mice avoid these foods due to the discomfort they experience (Han 2018). The TRPV1 sequences of humans (NM_080705.4), tree shrews (XM_006167590.3), and mice (NM_001001445.2) were downloaded as FASTA files from the NCBI database.
+________________________________________________________________________________
+
+Scientific Hypothesis: If humans actively seek spicy foods in a similar fashion to tree shrews, then the TRPV1 sequence of humans is more likely to have a higher similarity to the TRPV1 sequence of tree shrews than the TRPV1 sequence of mice.
+
+Here we perform multiple sequence alignment, pairwise sequence alignment and use a heatmap for visualization of the pairwise sequence alignments to analyze the similarity between the human, tree shrew, and mouse TRPV1 sequences. Multiple sequence alignment is conducted to print out and visualize the alignment of all three TRPV1 sequences. Pairwise sequence alignment is used to compare the similarity between pairs of TRPV1 sequences, and a heatmap is used to to visualize the results of the pairwise alignments.
+________________________________________________________________________________
+
+## Loading in Packages
+
+The following packages need to be installed and loaded prior to performing the bioinformatics analyses:
+
+1. BioCManager: assists with installing packages for bioinformatic analysis in R from the Bioconductor project
+https://www.bioconductor.org/install/
+
+2. DECIPHER: provides tools for the interpretation, managing, and analysis of DNA/RNA/amino acid sequences
+https://www.bioconductor.org/packages/release/bioc/html/DECIPHER.html
+
+3. Biostrings: allows for the creation of string containers for DNA/RNA/amino acid sequences that have capabilities for manipulation and analysis
+https://bioconductor.org/packages/release/bioc/html/Biostrings.html
+
+```{r}
+# Install BioCManager
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.12")
+
+# Load BiocManager
+library(BiocManager)
+
+# Install DECIPHER and Biostrings
+BiocManager::install("DECIPHER")
+BiocManager::install("Biostrings")
+
+# Load DECIPHER and Biostrings into the workspace
+library(DECIPHER)
+library(Biostrings)
+```
+________________________________________________________________________________
+
+## Performing Bioinformatic Analysis
+
+The code below is used to read in the TRPV1 sequences of humans (NM_080705.4), tree shrews (XM_006167590.3), and mice (NM_001001445.2) that were downloaded as FASTA files from the NCBI database. The sequences are read in as DNAStringSets. A DNAStringSet is a container for storing multiple DNAString objects that each hold a sequence of DNA. Bioinformatic analysis functions can be executed on this container. Each sequence is printed for simple visualization.
+
+```{r}
+# Make DNAStringSet of human TRPV1 sequence from FASTA file
+human_fasta <- "human_TRPV1_DNA.fasta"
+human_dna <- readDNAStringSet(human_fasta)
+human_dna
+
+# Make DNAStringSet of tree shrew TRPV1 sequence from FASTA file
+tree_shrew_fasta <- "tree_shrew_TRPV1_DNA.fasta"
+tree_shrew_dna <- readDNAStringSet(tree_shrew_fasta)
+tree_shrew_dna
+
+# Make DNAStringSet of mouse TRPV1 sequence from FASTA file
+mouse_fasta <- "mouse_TRPV1_DNA.fasta"
+mouse_dna <- readDNAStringSet(mouse_fasta)
+mouse_dna
+```
+
+The following lines of code below will perform multiple sequence analysis of the three TRPV1 sequences and write the aligned sequences into a FASTA file. To perform multiple sequence alignment using the function AlignTranslation(), the TRPV1 sequences must be compiled into a single DNAStringSet, RNAStringSet, AAStringSet object. In this case, we use a DNAStringSet. In multiple sequence alignment, 3 or more DNA/RNA sequences are aligned. The AlignTrnaslation() function takes in DNA or RNA sequences, translates them into amino acids, performs the alignment using the AlignSeqs() function, and reverse translates the aligned proteins into their original sequence type (either DNA or RNA). The AlignSeqs() function first aligns sequences uses progressive alignment in which pairwise alignments (explained further in detail later to avoid redundancy) are performed between the most similar pairs of sequences and alignment is continued throughout the set until the least similar sequence is aligned. Optimal alignment, the consensus sequence, is based on the highest score produced when calculating gap penalites described in the algorithm.  
+
+```{r}
+# Combine TRPV1 sequences into one DNAStringSet
+TRPV1_seqs <- append(human_dna, tree_shrew_dna)
+TRPV1_seqs <- append(TRPV1_seqs, mouse_dna)
+TRPV1_seqs
+
+# Align the DNA sequences using multiple sequence alignment
+TRPV1_DNA_align <- AlignTranslation(TRPV1_seqs)
+
+# Visualize the alignment in a browser
+BrowseSeqs(TRPV1_DNA_align, highlight = 1)
+
+# Write the aligned sequences into a FASTA file
+writeXStringSet(TRPV1_DNA_align, file = "Aligned_TRPV1_Seqs.fasta")
+```
+
+The code below performs pairwise sequence alignment for each possible pairs of sequences created among the three TRPV1 sequences. The pairwiseAlignment(type = "global") performs pairwise sequence alignment using the Needleman-Wunsch algorithm. In this algorithm, a 2D scoring matrix is set up between between the two sequences to be aligned: one sequence is in the top row starting at the 3rd element and the other sequences is in the first column starting at the third element. The scoring begins at zero in the [2,2] position of the matrix and a scoring rubric is used to calculate the accumulated score of the derived alignment. A typical scoring rubric involves adding 1 to the overall score when the nucleotides of the sequences match and subtracting 1 when the nucleotides of the sequences do not match. When a gap occurs, a larger scoring penalty is subtracted from the accumulated score, and when this gap is extended, a smaller (but larger than a mismatch) scoring penalty is subtracted. The scoring starts in the top left corner and advances outward toward the bottom right corner. Once the matrix has been populated, the alignment is determined by tracing back the path from the bottom right corner to the top left corner based on the highest possible connected score path. The final score value of the aligned sequences is present in the bottom right corner of the matrix. The pairwiseAlignment(type = "global) function presents the  alignment with the highest score, the optimal alignment. This score is used in the heatmap visualization of the bioinformatic analysis.
+
+```{r}
+# Create a vector to loop over later 
+vect <- c(1, 2, 3)
+
+# Create an empty matrix to hold the pairwise alignment scores for the heatmap
+matrix_for_heatmap <- matrix(nrow=length(vect), ncol=length(vect))
+
+# Label the matrix
+names_for_matrix <- c("Human", "Tree Shrew", "Mouse")
+colnames(matrix_for_heatmap) <- names_for_matrix
+rownames(matrix_for_heatmap) <- names_for_matrix
+
+# Combine the TRPV1 sequences into a vector for the pairwise alignment 
+seq_to_align <- c(human_dna, tree_shrew_dna, mouse_dna)
+seq_to_align
+
+# A nested for loop to input the pairwise alignment scores into the matrix
+for(i in vect) {
+  for(j in vect) {
+    
+    # Define the pair of TRPV1 sequences to align
+    seq1 <- seq_to_align[i]
+    seq2 <- seq_to_align[j]
+    
+    # Perform a pairwise alignment for the pair of TRPV1 
+    # sequences
+    seq_align <- pairwiseAlignment(pattern=seq2, subject=seq1, type = "global")
+    
+    # Insert the score from the pairwise alignment into the matrix
+    matrix_for_heatmap[i,j] <- score(seq_align)
+  }
+}
+```
+
+## Plotting the Results
+
+Here, a heatmap is used to visualize the scores resulting from the pairwise alignments performed above. The color grading progresses from light yellow (least similar) to red (most similar).
+
+```{r}
+# Normalize matrix_for_heatmap scores to the lowest score
+matrix_for_heatmap <- matrix_for_heatmap/min(matrix_for_heatmap)
+
+# Print normalizes matrix_for_heatmap scores
+matrix_for_heatmap
+
+# Create and display a heatmap from the scores in the matrix above
+heatmap(matrix_for_heatmap, col = heat.colors(70), cexRow = 1, cexCol = 1)
+```
+
+## Analyzing the Results
+
+The heatmap displays a darker yellow for the human/tree shrew TRPV1 pairwise sequence alignments compared to a lighter yellow for the human/mouse TRPV1 pairwise sequence alignment. This suggests that the TRPV1 sequences of humans are more similar to the TRPV1 sequences of tree shrews than the TRPV1 sequences of mice. Thus, my hypothesis was correct. These results could be used to support the claim that the spice tolerance of humans is more similar to the spice tolerance of tree shrews than mice, but additional lab experimentation is needed to establish this assertion.
