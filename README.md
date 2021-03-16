@@ -1,5 +1,6 @@
 # BMM43_Project3
 Scientific Question: Is the TRPV1 sequence of humans more similar to the TRPV1 sequence of tree shrews or the TRPV1 sequence of mice?
+
 Scientific Hypothesis: If humans actively seek spicy foods in a similar fashion to tree shrews, then the TRPV1 sequence of humans is more likely to have a higher similarity to the TRPV1 sequence of tree shrews than the TRPV1 sequence of mice.
 
 To the run the code, you will need the following files:
